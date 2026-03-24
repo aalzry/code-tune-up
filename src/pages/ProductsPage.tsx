@@ -178,6 +178,7 @@ const ProductsPage = () => {
         description: form.description,
         min_quantity: form.min_quantity
       });
+      await refreshAll(); // ✅ إضافة هذا السطر لتحديث القائمة فوراً
       toast({ title: 'تم الإضافة', description: 'تم إضافة المنتج بنجاح' });
     }
     setDialogOpen(false);
@@ -195,6 +196,7 @@ const ProductsPage = () => {
       toast({ title: 'لا يمكن الحذف', description: 'هذا المنتج مرتبط بحركات مخزون', variant: 'destructive' });
     } else {
       toast({ title: 'تم الحذف', description: 'تم حذف المنتج بنجاح' });
+      await refreshAll(); // ✅ تحديث القائمة بعد الحذف
     }
     setDeleteDialog(false);
     setDeletingProduct(null);
@@ -293,7 +295,7 @@ const ProductsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground">حد التنبيه</th>
                 {!selectedWarehouse && <th className="text-right p-3 font-semibold text-foreground hidden lg:table-cell">المخازن</th>}
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
-               </tr>
+                </tr>
             </thead>
             <tbody>
               {filtered.map(p => {
