@@ -24,7 +24,7 @@ const ProductsPage = () => {
     barcode: '', 
     category_id: '', 
     description: '',
-    min_quantity: 2    // ✅ إضافة الحد الأدنى للتنبيه
+    min_quantity: 2
   });
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -32,17 +32,17 @@ const ProductsPage = () => {
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ========== دوال محسنة لحساب الكميات مع دعم الحركات المتعددة ==========
+  // دوال حساب الكميات
   const getWarehouseQty = (productId: string, warehouseId: string) => {
     let total = 0;
     movements.forEach(m => {
       if (m.warehouse_id !== warehouseId) return;
       if (m.product_id === productId) {
-        total += m.type === 'in' ? m.quantity : -m.quantity;
+        total += m.type === 'in' ? m.quantity! : -m.quantity!;
       } else if (m.items) {
         const item = m.items.find(i => i.product_id === productId);
         if (item) {
-          total += m.type === 'in' ? item.quantity : -item.quantity;
+          total += m.type === 'in' ? item.quantity! : -item.quantity!;
         }
       }
     });
@@ -53,11 +53,11 @@ const ProductsPage = () => {
     let total = 0;
     movements.forEach(m => {
       if (m.product_id === productId) {
-        total += m.type === 'in' ? m.quantity : -m.quantity;
+        total += m.type === 'in' ? m.quantity! : -m.quantity!;
       } else if (m.items) {
         const item = m.items.find(i => i.product_id === productId);
         if (item) {
-          total += m.type === 'in' ? item.quantity : -item.quantity;
+          total += m.type === 'in' ? item.quantity! : -item.quantity!;
         }
       }
     });
@@ -82,7 +82,7 @@ const ProductsPage = () => {
     return getProductTotalQty(productId);
   };
 
-  // ========== باقي الدوال ==========
+  // التصفية
   const filtered = products
     .filter(p => p.name.includes(search) || p.code.includes(search) || p.barcode.includes(search))
     .filter(p => !selectedWarehouse || movements.some(m => m.product_id === p.id && m.warehouse_id === selectedWarehouse) || (movements.some(m => m.items?.some(i => i.product_id === p.id && m.warehouse_id === selectedWarehouse))));
@@ -132,7 +132,7 @@ const ProductsPage = () => {
       barcode: generateBarcode(),
       category_id: categories[0]?.id || '',
       description: '',
-      min_quantity: 2        // ✅ افتراضي 2
+      min_quantity: 2
     });
     setDialogOpen(true);
   };
@@ -145,7 +145,7 @@ const ProductsPage = () => {
       barcode: p.barcode,
       category_id: p.category_id || '',
       description: p.description,
-      min_quantity: p.min_quantity ?? 2    // ✅ إذا لم يكن محدداً، استخدم 2
+      min_quantity: p.min_quantity ?? 2
     });
     setDialogOpen(true);
   };
@@ -163,8 +163,9 @@ const ProductsPage = () => {
         barcode: form.barcode,
         category_id: form.category_id || null,
         description: form.description,
-        min_quantity: form.min_quantity    // ✅ إضافة الحد الأدنى
+        min_quantity: form.min_quantity
       });
+      await refreshAll(); // ✅ إعادة جلب البيانات لتحديث الواجهة
       toast({ title: 'تم التعديل', description: 'تم تعديل المنتج بنجاح' });
     } else {
       await addProduct({
@@ -175,7 +176,7 @@ const ProductsPage = () => {
         quantity: 0,
         warehouse_id: null,
         description: form.description,
-        min_quantity: form.min_quantity    // ✅ إضافة الحد الأدنى
+        min_quantity: form.min_quantity
       });
       toast({ title: 'تم الإضافة', description: 'تم إضافة المنتج بنجاح' });
     }
@@ -199,7 +200,6 @@ const ProductsPage = () => {
     setDeletingProduct(null);
   };
 
-  // ✅ دالة لتحديد لون الكمية بناءً على min_quantity
   const getQuantityStyle = (product: Product) => {
     const qty = getDisplayQty(product.id);
     const threshold = product.min_quantity ?? 2;
