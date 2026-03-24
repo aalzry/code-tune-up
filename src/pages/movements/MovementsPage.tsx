@@ -463,7 +463,7 @@ const MovementsPage = () => {
               <Plus className="w-4 h-4" />تسجيل حركة
             </Button>
             <Button onClick={openAddMulti} variant="secondary" className="text-sm gap-2">
-              <PackagePlus className="w-4 h-4" />حركة تعيين
+              <PackagePlus className="w-4 h-4" />صرف تعين
             </Button>
           </div>
         </div>
