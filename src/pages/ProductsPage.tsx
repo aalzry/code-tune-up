@@ -24,7 +24,8 @@ const ProductsPage = () => {
     barcode: '', 
     category_id: '', 
     description: '',
-    min_quantity: 2    // ✅ إضافة الحد الأدنى للتنبيه
+    min_quantity: 2,
+    unit: 'قطعة'  // الوحدة الأساسية للمنتج
   });
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -32,17 +33,17 @@ const ProductsPage = () => {
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // ========== دوال محسنة لحساب الكميات مع دعم الحركات المتعددة ==========
+  // ========== دوال حساب الكميات مع دعم الحركات المتعددة ==========
   const getWarehouseQty = (productId: string, warehouseId: string) => {
     let total = 0;
     movements.forEach(m => {
       if (m.warehouse_id !== warehouseId) return;
       if (m.product_id === productId) {
-        total += m.type === 'in' ? m.quantity : -m.quantity;
+        total += m.type === 'in' ? m.quantity! : -m.quantity!;
       } else if (m.items) {
         const item = m.items.find(i => i.product_id === productId);
         if (item) {
-          total += m.type === 'in' ? item.quantity : -item.quantity;
+          total += m.type === 'in' ? item.quantity! : -item.quantity!;
         }
       }
     });
@@ -53,11 +54,11 @@ const ProductsPage = () => {
     let total = 0;
     movements.forEach(m => {
       if (m.product_id === productId) {
-        total += m.type === 'in' ? m.quantity : -m.quantity;
+        total += m.type === 'in' ? m.quantity! : -m.quantity!;
       } else if (m.items) {
         const item = m.items.find(i => i.product_id === productId);
         if (item) {
-          total += m.type === 'in' ? item.quantity : -item.quantity;
+          total += m.type === 'in' ? item.quantity! : -item.quantity!;
         }
       }
     });
@@ -82,7 +83,7 @@ const ProductsPage = () => {
     return getProductTotalQty(productId);
   };
 
-  // ========== باقي الدوال ==========
+  // ========== التصفية والبحث ==========
   const filtered = products
     .filter(p => p.name.includes(search) || p.code.includes(search) || p.barcode.includes(search))
     .filter(p => !selectedWarehouse || movements.some(m => m.product_id === p.id && m.warehouse_id === selectedWarehouse) || (movements.some(m => m.items?.some(i => i.product_id === p.id && m.warehouse_id === selectedWarehouse))));
@@ -94,6 +95,7 @@ const ProductsPage = () => {
     toast({ title: 'تم التحديث', description: 'تم تحديث البيانات بنجاح' });
   };
 
+  // ========== تحديد المنتجات ==========
   const allSelected = filtered.length > 0 && filtered.every(p => selected.has(p.id));
   const toggleAll = () => {
     if (allSelected) setSelected(new Set());
@@ -105,6 +107,7 @@ const ProductsPage = () => {
     setSelected(next);
   };
 
+  // ========== الحذف الجماعي ==========
   const handleBulkDelete = async () => {
     const ids = Array.from(selected);
     let deleted = 0, linked = 0;
@@ -121,9 +124,11 @@ const ProductsPage = () => {
     setBulkDeleteDialog(false);
   };
 
+  // ========== توليد الكود والباركود ==========
   const generateCode = () => `P-${Date.now()}`;
   const generateBarcode = () => `${Math.floor(100000 + Math.random() * 900000)}`;
 
+  // ========== فتح نموذج الإضافة ==========
   const openAdd = () => {
     setEditing(null);
     setForm({
@@ -132,11 +137,13 @@ const ProductsPage = () => {
       barcode: generateBarcode(),
       category_id: categories[0]?.id || '',
       description: '',
-      min_quantity: 2        // ✅ افتراضي 2
+      min_quantity: 2,
+      unit: 'قطعة'
     });
     setDialogOpen(true);
   };
 
+  // ========== فتح نموذج التعديل ==========
   const openEdit = (p: Product) => {
     setEditing(p);
     setForm({
@@ -145,14 +152,20 @@ const ProductsPage = () => {
       barcode: p.barcode,
       category_id: p.category_id || '',
       description: p.description,
-      min_quantity: p.min_quantity ?? 2    // ✅ إذا لم يكن محدداً، استخدم 2
+      min_quantity: p.min_quantity ?? 2,
+      unit: p.unit || 'قطعة'
     });
     setDialogOpen(true);
   };
 
+  // ========== حفظ المنتج (إضافة أو تعديل) ==========
   const handleSave = async () => {
     if (!form.name.trim()) {
       toast({ title: 'تنبيه', description: 'يرجى إدخال جميع البيانات المطلوبة', variant: 'destructive' });
+      return;
+    }
+    if (!form.unit) {
+      toast({ title: 'تنبيه', description: 'يرجى اختيار الوحدة', variant: 'destructive' });
       return;
     }
     if (editing) {
@@ -163,8 +176,10 @@ const ProductsPage = () => {
         barcode: form.barcode,
         category_id: form.category_id || null,
         description: form.description,
-        min_quantity: form.min_quantity    // ✅ إضافة الحد الأدنى
+        min_quantity: form.min_quantity,
+        unit: form.unit
       });
+      await refreshAll(); // تحديث البيانات بعد التعديل
       toast({ title: 'تم التعديل', description: 'تم تعديل المنتج بنجاح' });
     } else {
       await addProduct({
@@ -175,13 +190,16 @@ const ProductsPage = () => {
         quantity: 0,
         warehouse_id: null,
         description: form.description,
-        min_quantity: form.min_quantity    // ✅ إضافة الحد الأدنى
+        min_quantity: form.min_quantity,
+        unit: form.unit
       });
+      await refreshAll(); // تحديث القائمة بعد الإضافة
       toast({ title: 'تم الإضافة', description: 'تم إضافة المنتج بنجاح' });
     }
     setDialogOpen(false);
   };
 
+  // ========== تأكيد الحذف ==========
   const confirmDelete = (p: Product) => {
     setDeletingProduct(p);
     setDeleteDialog(true);
@@ -199,7 +217,7 @@ const ProductsPage = () => {
     setDeletingProduct(null);
   };
 
-  // ✅ دالة لتحديد لون الكمية بناءً على min_quantity
+  // ========== تلوين الكمية حسب الحد الأدنى ==========
   const getQuantityStyle = (product: Product) => {
     const qty = getDisplayQty(product.id);
     const threshold = product.min_quantity ?? 2;
@@ -208,6 +226,7 @@ const ProductsPage = () => {
     return 'bg-success/10 text-success';
   };
 
+  // ========== بطاقة المنتج (للعرض الجوال) ==========
   const MobileCard = ({ p }: { p: Product }) => {
     const qty = getDisplayQty(p.id);
     const threshold = p.min_quantity ?? 2;
@@ -230,14 +249,17 @@ const ProductsPage = () => {
           <span>الصنف: {getCategoryName(p.category_id || '')}</span>
           {!selectedWarehouse && <span>المخازن: {getProductWarehouses(p.id)}</span>}
           <span>الكمية: <span className={`font-bold ${getQuantityStyle(p)}`}>{qty}</span></span>
+          <span>الوحدة: {p.unit || 'قطعة'}</span>
           <span>حد التنبيه: {threshold}</span>
         </div>
       </div>
     );
   };
 
+  // ========== العرض ==========
   return (
     <div className="space-y-3 sm:space-y-4">
+      {/* شريط البحث والفلاتر */}
       <div className="flex flex-col gap-3">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -269,6 +291,7 @@ const ProductsPage = () => {
         </div>
       </div>
 
+      {/* عرض الجوال (بطاقات) */}
       <div className="sm:hidden space-y-2">
         {isAdmin && filtered.length > 0 && (
           <div className="flex items-center gap-2 px-1">
@@ -280,6 +303,7 @@ const ProductsPage = () => {
         {filtered.length === 0 && <p className="text-center text-muted-foreground py-8 text-sm">لا توجد منتجات</p>}
       </div>
 
+      {/* جدول سطح المكتب */}
       <div className="hidden sm:block bg-card rounded-xl shadow-card border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -290,6 +314,7 @@ const ProductsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground">الكود</th>
                 <th className="text-right p-3 font-semibold text-foreground hidden md:table-cell">الصنف</th>
                 <th className="text-right p-3 font-semibold text-foreground">الكمية</th>
+                <th className="text-right p-3 font-semibold text-foreground">الوحدة</th>
                 <th className="text-right p-3 font-semibold text-foreground">حد التنبيه</th>
                 {!selectedWarehouse && <th className="text-right p-3 font-semibold text-foreground hidden lg:table-cell">المخازن</th>}
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
@@ -308,6 +333,7 @@ const ProductsPage = () => {
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getQuantityStyle(p)}`}>{qty}</span>
                     </td>
+                    <td className="p-3 text-muted-foreground">{p.unit || 'قطعة'}</td>
                     <td className="p-3 text-muted-foreground">{threshold}</td>
                     {!selectedWarehouse && <td className="p-3 text-muted-foreground hidden lg:table-cell">{getProductWarehouses(p.id)}</td>}
                     <td className="p-3">
@@ -324,14 +350,14 @@ const ProductsPage = () => {
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={isAdmin ? 8 : 7} className="p-8 text-center text-muted-foreground">لا توجد منتجات</td></tr>
+                <tr><td colSpan={isAdmin ? 9 : 8} className="p-8 text-center text-muted-foreground">لا توجد منتجات</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Add/Edit Dialog */}
+      {/* حوار الإضافة / التعديل */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
@@ -360,6 +386,25 @@ const ProductsPage = () => {
               </select>
             </div>
             <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm">الوحدة</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={form.unit}
+                onChange={e => setForm({ ...form, unit: e.target.value })}
+              >
+                <option value="قطعة">قطعة</option>
+                <option value="كرتون">كرتون</option>
+                <option value="علبة">علبة</option>
+                <option value="درزن">درزن</option>
+                <option value="شدة">شدة</option>
+                <option value="كيس">كيس</option>
+                <option value="طرد">طرد</option>
+                <option value="لفة">لفة</option>
+                <option value="زجاجة">زجاجة</option>
+                <option value="عبوة">عبوة</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs sm:text-sm">الحد الأدنى للتنبيه</Label>
               <Input
                 type="number"
@@ -382,7 +427,7 @@ const ProductsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* حوار تأكيد الحذف الفردي */}
       <Dialog open={deleteDialog} onOpenChange={setDeleteDialog}>
         <DialogContent className="max-w-[95vw] sm:max-w-sm" dir="rtl">
           <DialogHeader><DialogTitle>تأكيد الحذف</DialogTitle></DialogHeader>
@@ -396,7 +441,7 @@ const ProductsPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Bulk Delete Dialog */}
+      {/* حوار الحذف الجماعي */}
       <Dialog open={bulkDeleteDialog} onOpenChange={setBulkDeleteDialog}>
         <DialogContent className="max-w-[95vw] sm:max-w-sm" dir="rtl">
           <DialogHeader><DialogTitle>تأكيد حذف المحدد</DialogTitle></DialogHeader>
