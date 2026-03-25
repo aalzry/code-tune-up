@@ -9,10 +9,10 @@ export interface Product {
   barcode: string;
   category_id: string | null;
   quantity: number;
-  min_quantity?: number;      // ✅ الحد الأدنى للتنبيه (عند وصول المخزون لهذه القيمة أو أقل يظهر تحذير)
+  min_quantity?: number;      // الحد الأدنى للتنبيه
   warehouse_id: string | null;
   description: string;
-  unit?: string;              // وحدة القياس (قطعة، كرتونة، كيس، إلخ)
+  unit?: string;              // الوحدة الأساسية للمنتج
   image?: string;
   created_by: string | null;
   created_at: string;
@@ -60,17 +60,15 @@ export interface Client {
 
 export type MovementType = 'in' | 'out';
 
-// تعريف عنصر داخل الحركة المتعددة (الكمية يمكن أن تكون null)
 export interface MovementItem {
   product_id: string;
-  quantity: number | null;   // تم التعديل: number | null
+  quantity: number | null;
   unit: string;
   notes?: string;
 }
 
 export interface StockMovement {
   id: string;
-  // حقول مشتركة
   warehouse_id: string;
   type: MovementType;
   entity_id: string;
@@ -79,17 +77,13 @@ export interface StockMovement {
   notes?: string;
   created_by: string | null;
   created_at: string;
-
-  // حقول الحركة المفردة (اختيارية)
   product_id?: string;
-  quantity?: number | null;   // تم التعديل: number | null
+  quantity?: number | null;
   unit?: string;
-
-  // حقول الحركة المتعددة (اختيارية)
   items?: MovementItem[];
 }
 
-// الأنواع الخاصة بمخازن التسليح
+// الأنواع الخاصة بمخازن التسليح (كما هي)
 export type WeaponType = 'بندقية' | 'مسدس' | 'رشاش' | 'قاذفة' | 'أخرى';
 export type Caliber = '5.56' | '7.62' | '9mm' | '12.7' | '45' | 'أخرى';
 export type EquipmentType = 'منظار' | 'جهاز' | 'حقيبة' | 'أخرى';
