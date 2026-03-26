@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core"; // ✅ استيراد Capacitor
 import { toast } from "sonner";
 
 // استيراد المزودات (Providers)
@@ -12,6 +13,9 @@ import { WarehouseProvider } from "@/contexts/WarehouseContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ArmoryProvider } from "@/contexts/ArmoryContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+
+// ✅ استيراد خدمة الإعلانات
+import { AdService } from "@/services/adService";
 
 // استيراد المكونات والصفحات
 import AppLayout from "@/components/AppLayout";
@@ -23,7 +27,7 @@ import SuppliersPage from "@/pages/SuppliersPage";
 import ClientsPage from "@/pages/ClientsPage";
 import MovementsPage from "@/pages/movements/MovementsPage";
 import SettingsPage from "@/pages/SettingsPage";
-import ReportsPage from "@/pages/movements/ReportsPage"; // ✅ تم تعديل المسار
+import ReportsPage from "@/pages/movements/ReportsPage";
 import LoginPage from "@/pages/LoginPage";
 import NotFound from "./pages/NotFound";
 import ArmoryPage from "./pages/ArmoryPage";
@@ -94,23 +98,35 @@ const LoginRoute = () => {
 };
 
 // المكون الرئيسي للتطبيق
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <LanguageProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<LoginRoute />} />
-              <Route path="/*" element={<ProtectedRoutes />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </LanguageProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  // ✅ تهيئة الإعلانات عند بدء التطبيق
+  useEffect(() => {
+    const initAds = async () => {
+      if (Capacitor.isNativePlatform()) {
+        await AdService.initialize();
+      }
+    };
+    initAds();
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <LanguageProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<LoginRoute />} />
+                <Route path="/*" element={<ProtectedRoutes />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </LanguageProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
