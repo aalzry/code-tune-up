@@ -1,0 +1,30 @@
+{
+  "short_name": "إدارة المخازن",
+  "name": "نظام إدارة المخازن الاحترافي",
+  "description": "نظام متكامل لمتابعة المخزون والوارد والصادر بدقة عالية.",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "favicon.ico",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.ico",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "orientation": "portrait",
+  "lang": "ar-SA",
+  "dir": "rtl"
+}
