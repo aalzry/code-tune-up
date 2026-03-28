@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Search, Pencil, Trash2, FileText, RefreshCw, PackagePlus, X } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, FileText, RefreshCw, PackagePlus, X, Copy } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,11 @@ const MovementsPage = () => {
   const [editing, setEditing] = useState<StockMovement | null>(null);
   const [movementType, setMovementType] = useState<'single' | 'multi'>('single');
   const [saving, setSaving] = useState(false);
+
+  // ✅ حالات لصندوق نسخ الحركة
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [duplicateMovement, setDuplicateMovement] = useState<StockMovement | null>(null);
+  const [duplicateDate, setDuplicateDate] = useState('');
 
   // نموذج الحركة الواحدة
   const [form, setForm] = useState({
@@ -185,6 +190,56 @@ const MovementsPage = () => {
     toast({ title: 'تم الحذف', description: `تم حذف ${selectedItems.size} حركة بنجاح` });
     setSelectedItems(new Set());
     setBulkDeleteDialog(false);
+  };
+
+  // ✅ دالة فتح حوار نسخ الحركة
+  const openDuplicateDialog = (movement: StockMovement) => {
+    setDuplicateMovement(movement);
+    setDuplicateDate(new Date().toISOString().split('T')[0]);
+    setDuplicateDialogOpen(true);
+  };
+
+  // ✅ دالة نسخ الحركة
+  const handleDuplicate = async () => {
+    if (!duplicateMovement) return;
+    
+    setSaving(true);
+    try {
+      const newMovement: Omit<StockMovement, 'id' | 'created_at' | 'created_by'> = {
+        warehouse_id: duplicateMovement.warehouse_id,
+        type: duplicateMovement.type,
+        entity_id: duplicateMovement.entity_id,
+        entity_type: duplicateMovement.entity_type,
+        date: duplicateDate,
+        notes: duplicateMovement.notes ? `(نسخة من ${duplicateMovement.date}) ${duplicateMovement.notes}` : `نسخة من ${duplicateMovement.date}`,
+      };
+      
+      if (duplicateMovement.product_id && duplicateMovement.quantity !== undefined) {
+        // حركة مفردة
+        newMovement.product_id = duplicateMovement.product_id;
+        newMovement.quantity = duplicateMovement.quantity;
+        newMovement.unit = duplicateMovement.unit;
+      } else if (duplicateMovement.items && duplicateMovement.items.length > 0) {
+        // حركة متعددة
+        newMovement.items = duplicateMovement.items.map(item => ({
+          ...item,
+          quantity: item.quantity
+        }));
+      } else {
+        toast({ title: 'خطأ', description: 'لا يمكن نسخ هذه الحركة', variant: 'destructive' });
+        return;
+      }
+      
+      await addMovement(newMovement);
+      toast({ title: 'تم النسخ', description: 'تم نسخ الحركة بنجاح' });
+      setDuplicateDialogOpen(false);
+      setDuplicateMovement(null);
+    } catch (error) {
+      console.error('Error duplicating movement:', error);
+      toast({ title: 'خطأ', description: 'حدث خطأ أثناء نسخ الحركة', variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const openAddSingle = () => {
@@ -568,6 +623,7 @@ const MovementsPage = () => {
             onEdit={() => openEdit(m)}
             onDelete={() => confirmDelete(m)}
             onPrint={() => handlePrint(m)}
+            onDuplicate={() => openDuplicateDialog(m)}
             showCheckbox={isAdmin}
           />
         ))}
@@ -597,7 +653,7 @@ const MovementsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground hidden md:table-cell">بواسطة</th>
                 <th className="text-right p-3 font-semibold text-foreground hidden lg:table-cell">التاريخ</th>
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
-              </tr>
+                </tr>
             </thead>
             <tbody>
               {activeMovements.map((m, i) => (
@@ -639,6 +695,7 @@ const MovementsPage = () => {
                     <div className="flex items-center justify-center gap-1">
                       <button onClick={() => openEdit(m)} className="p-1.5 rounded-md hover:bg-primary/10 text-primary"><Pencil className="w-4 h-4" /></button>
                       {isAdmin && <button onClick={() => confirmDelete(m)} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive"><Trash2 className="w-4 h-4" /></button>}
+                      <button onClick={() => openDuplicateDialog(m)} className="p-1.5 rounded-md hover:bg-accent/20 text-accent"><Copy className="w-4 h-4" /></button>
                       <button onClick={() => handlePrint(m)} className="p-1.5 rounded-md hover:bg-accent/20 text-accent"><FileText className="w-4 h-4" /></button>
                     </div>
                   </td>
@@ -664,6 +721,31 @@ const MovementsPage = () => {
           <div className="flex gap-2">
             <Button variant="destructive" onClick={handleBulkDelete} className="flex-1">تأكيد الحذف</Button>
             <Button variant="outline" onClick={() => setBulkDeleteDialog(false)} className="flex-1">إلغاء</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ✅ حوار نسخ الحركة */}
+      <Dialog open={duplicateDialogOpen} onOpenChange={setDuplicateDialogOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-base sm:text-lg">نسخ الحركة</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 mt-2">
+            <div className="space-y-2">
+              <Label>التاريخ</Label>
+              <Input
+                type="date"
+                value={duplicateDate}
+                onChange={e => setDuplicateDate(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                سيتم إنشاء نسخة جديدة من هذه الحركة بتاريخ {duplicateDate || 'اليوم'}
+              </p>
+            </div>
+            <Button onClick={handleDuplicate} disabled={saving} className="gradient-primary border-0">
+              {saving ? 'جاري النسخ...' : 'تأكيد النسخ'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -846,7 +928,7 @@ const MovementsPage = () => {
                                 <option value="" disabled>اختر المنتج</option>
                                 {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                               </select>
-                             </td>
+                            </td>
                             <td className="p-1">
                               <Input
                                 type="number"
@@ -857,7 +939,7 @@ const MovementsPage = () => {
                                 min="0"
                                 className="w-20"
                               />
-                             </td>
+                            </td>
                             <td className="p-1">
                               <select
                                 value={item.unit}
@@ -867,7 +949,7 @@ const MovementsPage = () => {
                                 <option value="" disabled>اختر الوحدة</option>
                                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                               </select>
-                             </td>
+                            </td>
                             <td className="p-1">
                               <Input
                                 value={item.notes || ''}
@@ -875,16 +957,16 @@ const MovementsPage = () => {
                                 placeholder="ملاحظة"
                                 className="w-32"
                               />
-                             </td>
+                            </td>
                             <td className="p-1">
                               <button onClick={() => removeItem(index)} className="text-destructive">
                                 <Trash2 className="w-4 h-4" />
                               </button>
-                             </td>
-                           </tr>
+                            </td>
+                          </tr>
                         ))}
                       </tbody>
-                     </table>
+                    </table>
                   </div>
 
                   <Button onClick={addItem} variant="outline" size="sm" className="mt-2 w-full sm:w-auto">
