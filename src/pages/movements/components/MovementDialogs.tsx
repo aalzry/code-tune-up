@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
 import { Plus, X, Copy, Pencil, Trash2, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -177,6 +177,68 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
   });
   const [duplicateItems, setDuplicateItems] = useState<MovementItem[]>([]);
   const [duplicateType, setDuplicateType] = useState<'single' | 'multi'>('single');
+
+  // ========== useEffect لملء بيانات التعديل عند فتح الحوار ==========
+  useEffect(() => {
+    if (editingMovement && editFullOpen) {
+      if (editingMovement.product_id) {
+        setEditType('single');
+        setEditSingleForm({
+          product_id: editingMovement.product_id,
+          warehouse_id: editingMovement.warehouse_id,
+          type: editingMovement.type,
+          quantity: editingMovement.quantity ?? null,
+          entity_id: editingMovement.entity_id,
+          entity_type: editingMovement.entity_type,
+          date: editingMovement.date,
+          notes: editingMovement.notes || '',
+          unit: editingMovement.unit || ''
+        });
+      } else if (editingMovement.items && editingMovement.items.length > 0) {
+        setEditType('multi');
+        setEditMultiForm({
+          warehouse_id: editingMovement.warehouse_id,
+          type: editingMovement.type,
+          entity_id: editingMovement.entity_id,
+          entity_type: editingMovement.entity_type,
+          date: editingMovement.date,
+          notes: editingMovement.notes || ''
+        });
+        setEditItems(editingMovement.items.map(item => ({ ...item })));
+      }
+    }
+  }, [editingMovement, editFullOpen]);
+
+  // ========== useEffect لملء بيانات النسخ عند فتح الحوار ==========
+  useEffect(() => {
+    if (duplicateMovement && duplicateOpen) {
+      if (duplicateMovement.product_id) {
+        setDuplicateType('single');
+        setDuplicateSingleForm({
+          product_id: duplicateMovement.product_id,
+          warehouse_id: duplicateMovement.warehouse_id,
+          type: duplicateMovement.type,
+          quantity: duplicateMovement.quantity ?? null,
+          entity_id: duplicateMovement.entity_id,
+          entity_type: duplicateMovement.entity_type,
+          date: new Date().toISOString().split('T')[0],
+          notes: duplicateMovement.notes || '',
+          unit: duplicateMovement.unit || ''
+        });
+      } else if (duplicateMovement.items && duplicateMovement.items.length > 0) {
+        setDuplicateType('multi');
+        setDuplicateMultiForm({
+          warehouse_id: duplicateMovement.warehouse_id,
+          type: duplicateMovement.type,
+          entity_id: duplicateMovement.entity_id,
+          entity_type: duplicateMovement.entity_type,
+          date: new Date().toISOString().split('T')[0],
+          notes: duplicateMovement.notes || ''
+        });
+        setDuplicateItems(duplicateMovement.items.map(item => ({ ...item, quantity: item.quantity })));
+      }
+    }
+  }, [duplicateMovement, duplicateOpen]);
 
   // ========== دوال مساعدة للإضافة ==========
   const handleTypeChange = (type: MovementType) => {
@@ -622,101 +684,9 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
     setBulkDeleteOpen(false);
   };
 
-  // ========== دوال فتح الحوارات ==========
-  const openAddSingle = () => {
-    setMovementType('single');
-    setForm({
-      product_id: '',
-      warehouse_id: '',
-      type: 'in',
-      quantity: null,
-      entity_id: '',
-      entity_type: 'supplier',
-      date: new Date().toISOString().split('T')[0],
-      notes: '',
-      unit: ''
-    });
-    setAddSingleOpen(true);
-  };
-
-  const openAddMulti = () => {
-    setMovementType('multi');
-    setMultiForm({
-      warehouse_id: '',
-      type: 'in',
-      entity_id: '',
-      entity_type: 'supplier',
-      date: new Date().toISOString().split('T')[0],
-      notes: ''
-    });
-    setItems([{ product_id: '', quantity: null, unit: '', notes: '' }]);
-    setAddMultiOpen(true);
-  };
-
-  const openEditFull = (movement: StockMovement) => {
-    setEditingMovement(movement);
-    if (movement.product_id) {
-      setEditType('single');
-      setEditSingleForm({
-        product_id: movement.product_id,
-        warehouse_id: movement.warehouse_id,
-        type: movement.type,
-        quantity: movement.quantity ?? null,
-        entity_id: movement.entity_id,
-        entity_type: movement.entity_type,
-        date: movement.date,
-        notes: movement.notes || '',
-        unit: movement.unit || ''
-      });
-    } else if (movement.items && movement.items.length > 0) {
-      setEditType('multi');
-      setEditMultiForm({
-        warehouse_id: movement.warehouse_id,
-        type: movement.type,
-        entity_id: movement.entity_id,
-        entity_type: movement.entity_type,
-        date: movement.date,
-        notes: movement.notes || ''
-      });
-      setEditItems(movement.items.map(item => ({ ...item })));
-    }
-    setEditFullOpen(true);
-  };
-
-  const openDuplicateDialog = (movement: StockMovement) => {
-    setDuplicateMovement(movement);
-    if (movement.product_id) {
-      setDuplicateType('single');
-      setDuplicateSingleForm({
-        product_id: movement.product_id,
-        warehouse_id: movement.warehouse_id,
-        type: movement.type,
-        quantity: movement.quantity ?? null,
-        entity_id: movement.entity_id,
-        entity_type: movement.entity_type,
-        date: new Date().toISOString().split('T')[0],
-        notes: movement.notes || '',
-        unit: movement.unit || ''
-      });
-    } else if (movement.items && movement.items.length > 0) {
-      setDuplicateType('multi');
-      setDuplicateMultiForm({
-        warehouse_id: movement.warehouse_id,
-        type: movement.type,
-        entity_id: movement.entity_id,
-        entity_type: movement.entity_type,
-        date: new Date().toISOString().split('T')[0],
-        notes: movement.notes || ''
-      });
-      setDuplicateItems(movement.items.map(item => ({ ...item })));
-    }
-    setDuplicateOpen(true);
-  };
-
-  const confirmDelete = (movement: StockMovement) => {
-    setDeletingMovement(movement);
-    setDeleteOpen(true);
-  };
+  // ========== دوال فتح الحوارات (تستخدم من المكون الأب) ==========
+  // هذه الدوال تم تمريرها من MovementsPage، لا نحتاج لتعريفها هنا
+  // فقط نستخدمها في الحوارات
 
   return (
     <>
@@ -952,7 +922,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
                         <th className="p-1 text-right">الوحدة <span className="text-destructive">*</span></th>
                         <th className="p-1 text-right">ملاحظات</th>
                         <th className="p-1"></th>
-                      </tr>
+                       </tr>
                     </thead>
                     <tbody>
                       {items.map((item, index) => (
@@ -966,7 +936,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
                               <option value="" disabled>اختر المنتج</option>
                               {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
-                          </td>
+                           </td>
                           <td className="p-1">
                             <Input
                               type="number"
@@ -977,7 +947,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
                               min="0"
                               className="w-20"
                             />
-                          </td>
+                           </td>
                           <td className="p-1">
                             <select
                               value={item.unit}
@@ -987,7 +957,7 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
                               <option value="" disabled>اختر الوحدة</option>
                               {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                             </select>
-                          </td>
+                           </td>
                           <td className="p-1">
                             <Input
                               value={item.notes || ''}
@@ -995,16 +965,16 @@ export const MovementDialogs: React.FC<MovementDialogsProps> = ({
                               placeholder="ملاحظة"
                               className="w-32"
                             />
-                          </td>
+                           </td>
                           <td className="p-1">
                             <button onClick={() => removeItem(index)} className="text-destructive">
                               <Trash2 className="w-4 h-4" />
                             </button>
-                          </td>
-                        </tr>
+                           </td>
+                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                   </table>
                 </div>
 
                 <Button onClick={addItem} variant="outline" size="sm" className="mt-2 w-full sm:w-auto">
