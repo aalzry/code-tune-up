@@ -1,17 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useWarehouse } from '@/contexts/WarehouseContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Plus, Search, RefreshCw, PackagePlus, Checkbox } from 'lucide-react';
+import { Plus, Search, RefreshCw, PackagePlus, Checkbox, Copy, Pencil, Trash2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { StockMovement, MovementItem } from '@/types/warehouse';
 import { UNITS } from './utils/movementUtils';
 import { MovementCard } from './components/MovementCard';
-import {
-  MovementDialogs,
-  MovementDialogsProps
-} from './components/MovementDialogs';
+import { MovementDialogs } from './components/MovementDialogs';
 
 const MovementsPage = () => {
   const {
@@ -32,6 +29,17 @@ const MovementsPage = () => {
   // ========== حالات التحديد والحذف الجماعي ==========
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
+
+  // ========== حالات الحوارات ==========
+  const [addSingleOpen, setAddSingleOpen] = useState(false);
+  const [addMultiOpen, setAddMultiOpen] = useState(false);
+  const [editFullOpen, setEditFullOpen] = useState(false);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  
+  const [editingMovement, setEditingMovement] = useState<StockMovement | null>(null);
+  const [duplicateMovement, setDuplicateMovement] = useState<StockMovement | null>(null);
+  const [deletingMovement, setDeletingMovement] = useState<StockMovement | null>(null);
 
   // ========== خريطة وحدات المنتجات (تسريع التحقق) ==========
   const productUnitMap = useMemo(() => {
@@ -105,6 +113,11 @@ const MovementsPage = () => {
     return true;
   };
 
+  // ========== منع الكسور العشرية ==========
+  const preventDecimal = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === '.' || e.key === 'e' || e.key === '-' || e.key === '+') e.preventDefault();
+  };
+
   // ========== تصفية وترتيب الحركات ==========
   const filtered = movements
     .filter(m => filter === 'all' || m.type === filter)
@@ -149,37 +162,35 @@ const MovementsPage = () => {
     setBulkDeleteDialog(false);
   };
 
-  // ========== عرض الجوال ==========
-  const MobileCard = ({ m }: { m: StockMovement }) => (
-    <MovementCard
-      movement={m}
-      isSelected={selectedItems.has(m.id)}
-      onToggleSelect={() => toggleOne(m.id)}
-      onEdit={() => openEditFull(m)}
-      onDelete={() => confirmDelete(m)}
-      onPrint={() => handlePrint(m)}
-      onDuplicate={() => openDuplicateDialog(m)}
-      showCheckbox={isAdmin}
-    />
-  );
+  // ========== دوال فتح الحوارات ==========
+  const openAddSingle = () => {
+    setAddSingleOpen(true);
+  };
 
-  // ========== دوال الحوارات (سيتم تمريرها إلى MovementDialogs) ==========
-  // هذه الدوال سيتم تعريفها في نفس الملف لأنها تحتاج إلى حالات
-  // لكن لضيق المساحة، سأضعها في نفس الملف مع الإشارة إلى أنك تحتاج إلى نقلها
-  // في الملف النهائي، يجب أن تكون هذه الدوال موجودة
-  
-  // سنقوم بتعريف الدوال هنا بشكل مختصر، ثم تمريرها إلى الحوارات
-  
-  // سيتم تعريف هذه الدوال في القسم التالي
-  // openAddSingle, openAddMulti, openEditFull, openDuplicateDialog, confirmDelete, handlePrint, etc.
-  
-  // مؤقتاً، سأضع دوال فارغة للتوضيح
-  const openAddSingle = () => {};
-  const openAddMulti = () => {};
-  const openEditFull = (m: StockMovement) => {};
-  const openDuplicateDialog = (m: StockMovement) => {};
-  const confirmDelete = (m: StockMovement) => {};
-  const handlePrint = (m: StockMovement) => {};
+  const openAddMulti = () => {
+    setAddMultiOpen(true);
+  };
+
+  const openEditFull = (movement: StockMovement) => {
+    setEditingMovement(movement);
+    setEditFullOpen(true);
+  };
+
+  const openDuplicateDialog = (movement: StockMovement) => {
+    setDuplicateMovement(movement);
+    setDuplicateOpen(true);
+  };
+
+  const confirmDelete = (movement: StockMovement) => {
+    setDeletingMovement(movement);
+    setDeleteOpen(true);
+  };
+
+  // ========== دوال الطباعة ==========
+  const handlePrint = async (movement: StockMovement) => {
+    // سيتم تنفيذ الطباعة لاحقاً
+    toast({ title: 'طباعة', description: 'جاري تجهيز التقرير...' });
+  };
 
   // ========== JSX ==========
   return (
@@ -246,7 +257,17 @@ const MovementsPage = () => {
           </div>
         )}
         {activeMovements.map(m => (
-          <MobileCard key={m.id} m={m} />
+          <MovementCard
+            key={m.id}
+            movement={m}
+            isSelected={selectedItems.has(m.id)}
+            onToggleSelect={() => toggleOne(m.id)}
+            onEdit={() => openEditFull(m)}
+            onDelete={() => confirmDelete(m)}
+            onPrint={() => handlePrint(m)}
+            onDuplicate={() => openDuplicateDialog(m)}
+            showCheckbox={isAdmin}
+          />
         ))}
         {activeMovements.length === 0 && <p className="text-center text-muted-foreground py-8 text-sm">لا توجد حركات</p>}
       </div>
@@ -332,14 +353,47 @@ const MovementsPage = () => {
 
       {/* الحوارات */}
       <MovementDialogs
-        openAddSingle={openAddSingle}
-        openAddMulti={openAddMulti}
-        openEditFull={openEditFull}
-        openDuplicateDialog={openDuplicateDialog}
-        confirmDelete={confirmDelete}
-        handlePrint={handlePrint}
-        handleBulkDelete={handleBulkDelete}
-        // سيتم تمرير باقي البروبس
+        addMovement={addMovement}
+        updateMovement={updateMovement}
+        deleteMovement={deleteMovement}
+        getProductName={getProductName}
+        getWarehouseName={getWarehouseName}
+        getSupplierName={getSupplierName}
+        getClientName={getClientName}
+        getUserName={getUserName}
+        refreshAll={refreshAll}
+        products={products}
+        warehouses={warehouses}
+        suppliers={suppliers}
+        clients={clients}
+        movements={movements}
+        isAdmin={isAdmin}
+        toast={toast}
+        addSingleOpen={addSingleOpen}
+        setAddSingleOpen={setAddSingleOpen}
+        addMultiOpen={addMultiOpen}
+        setAddMultiOpen={setAddMultiOpen}
+        editFullOpen={editFullOpen}
+        setEditFullOpen={setEditFullOpen}
+        duplicateOpen={duplicateOpen}
+        setDuplicateOpen={setDuplicateOpen}
+        deleteOpen={deleteOpen}
+        setDeleteOpen={setDeleteOpen}
+        bulkDeleteOpen={bulkDeleteDialog}
+        setBulkDeleteOpen={setBulkDeleteDialog}
+        editingMovement={editingMovement}
+        setEditingMovement={setEditingMovement}
+        duplicateMovement={duplicateMovement}
+        setDuplicateMovement={setDuplicateMovement}
+        deletingMovement={deletingMovement}
+        setDeletingMovement={setDeletingMovement}
+        selectedItems={selectedItems}
+        setSelectedItems={setSelectedItems}
+        validateProductUnit={validateProductUnit}
+        getCurrentStock={getCurrentStock}
+        getProductMinQty={getProductMinQty}
+        getStockMapForWarehouse={getStockMapForWarehouse}
+        preventDecimal={preventDecimal}
       />
     </div>
   );
