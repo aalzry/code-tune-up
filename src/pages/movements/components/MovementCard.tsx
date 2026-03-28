@@ -1,6 +1,6 @@
 import React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Pencil, Trash2, FileText } from 'lucide-react';
+import { Pencil, Trash2, FileText, Copy } from 'lucide-react';
 import { StockMovement } from '@/types/warehouse';
 import { useWarehouse } from '@/contexts/WarehouseContext';
 
@@ -11,6 +11,7 @@ interface MovementCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onPrint: () => void;
+  onDuplicate?: () => void; // ✅ إضافة دالة النسخ (اختيارية)
   showCheckbox: boolean;
 }
 
@@ -21,6 +22,7 @@ export const MovementCard: React.FC<MovementCardProps> = ({
   onEdit,
   onDelete,
   onPrint,
+  onDuplicate,
   showCheckbox,
 }) => {
   const { getProductName, getWarehouseName, getSupplierName, getClientName } = useWarehouse();
@@ -47,6 +49,12 @@ export const MovementCard: React.FC<MovementCardProps> = ({
           {showCheckbox && (
             <button onClick={onDelete} className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive">
               <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {/* ✅ إضافة زر نسخ الحركة */}
+          {onDuplicate && (
+            <button onClick={onDuplicate} className="p-1.5 rounded-md hover:bg-accent/20 text-accent">
+              <Copy className="w-3.5 h-3.5" />
             </button>
           )}
           <button onClick={onPrint} className="p-1.5 rounded-md hover:bg-accent/20 text-accent">
