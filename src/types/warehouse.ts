@@ -1,5 +1,5 @@
 // ============================================================================
-// ملف: types/warehouse.ts (محدث - دعم الوحدات المتكامل)
+// ملف: types/warehouse.ts (محدث - دعم الوحدات المتكامل مع display_quantity و display_unit)
 // ============================================================================
 
 export interface Product {
@@ -68,6 +68,8 @@ export interface MovementItem {
   quantity: number | null;
   unit: string;
   notes?: string;
+  display_quantity?: number | null;   // الكمية الأصلية المدخلة من المستخدم
+  display_unit?: string | null;       // الوحدة الأصلية المدخلة من المستخدم
 }
 
 export interface StockMovement {
@@ -84,6 +86,8 @@ export interface StockMovement {
   quantity?: number | null;
   unit?: string;
   items?: MovementItem[];
+  display_quantity?: number | null;   // الكمية الأصلية المدخلة من المستخدم (لحركة مفردة)
+  display_unit?: string | null;       // الوحدة الأصلية المدخلة من المستخدم (لحركة مفردة)
 }
 
 // ============================================================================
