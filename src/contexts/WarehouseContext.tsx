@@ -1,9 +1,8 @@
 // ============================================================================
-// ملف: context/WarehouseContext.tsx (محدث - دعم الوحدات المتكامل)
+// ملف: context/WarehouseContext.tsx (محدث - دعم الوحدات المتكامل مع display_quantity و display_unit)
 // ============================================================================
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { Product, Category, Warehouse, Supplier, Client, StockMovement, MovementItem, MovementType, Unit, UnitConversion } from '@/types/warehouse';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +12,110 @@ import {
   getLowStockNotification,
 } from '@/utils/notificationTemplates';
 
+// ========== تعريف الأنواع المحلية لضمان الاكتمال ==========
+export type MovementType = 'in' | 'out';
+
+export interface MovementItem {
+  product_id: string;
+  quantity: number | null;
+  unit: string;
+  notes?: string;
+  display_quantity?: number | null;
+  display_unit?: string | null;
+}
+
+export interface StockMovement {
+  id: string;
+  warehouse_id: string;
+  type: MovementType;
+  entity_id: string;
+  entity_type: 'supplier' | 'client';
+  date: string;
+  notes?: string;
+  created_at: string;
+  created_by: string;
+  product_id?: string | null;
+  quantity?: number | null;
+  unit?: string | null;
+  items?: MovementItem[] | null;
+  display_quantity?: number | null;
+  display_unit?: string | null;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  code: string;
+  barcode?: string;
+  category_id?: string | null;
+  quantity: number;
+  warehouse_id?: string | null;
+  description?: string;
+  image?: string;
+  unit: string;
+  min_quantity?: number;
+  pack_size?: number;
+  base_unit_id?: string | null;
+  display_unit_id?: string | null;
+  created_at: string;
+  created_by: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  created_by: string;
+}
+
+export interface Warehouse {
+  id: string;
+  name: string;
+  type?: string;
+  location?: string;
+  manager?: string;
+  notes?: string;
+  created_at: string;
+  created_by: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  created_at: string;
+  created_by: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  created_at: string;
+  created_by: string;
+}
+
+export interface Unit {
+  id: string;
+  name: string;
+  abbreviation?: string;
+  is_base_unit: boolean;
+}
+
+export interface UnitConversion {
+  id: string;
+  from_unit_id: string;
+  to_unit_id: string;
+  factor: number;
+}
+
+// ========== واجهة السياق ==========
 interface WarehouseContextType {
   products: Product[];
   categories: Category[];
@@ -330,7 +433,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     return true;
   }, [movements]);
 
-  // ========== دوال الحركات ==========
+  // ========== دوال تحديث الكميات في المنتجات ==========
   const updateProductQuantities = useCallback(async (movement: StockMovement, reverse: boolean = false) => {
     if (movement.product_id && movement.quantity !== undefined && movement.quantity !== null) {
       const product = products.find(p => p.id === movement.product_id);
@@ -366,6 +469,7 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [products]);
 
+  // ========== دوال الحركات مع دعم display_quantity و display_unit ==========
   const addMovement = useCallback(async (m: Omit<StockMovement, 'id' | 'created_at' | 'created_by'>) => {
     if (!user?.id) {
       showError('يجب تسجيل الدخول أولاً');
@@ -380,6 +484,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       date: m.date,
       notes: m.notes,
       created_by: user.id,
+      display_quantity: m.display_quantity ?? null,
+      display_unit: m.display_unit ?? null,
     };
 
     if (m.product_id && m.quantity !== undefined) {
@@ -414,7 +520,9 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         ...d,
         type: d.type as MovementType,
         entity_type: d.entity_type as 'supplier' | 'client',
-        items: d.items ? (typeof d.items === 'string' ? JSON.parse(d.items) : d.items) : undefined
+        items: d.items ? (typeof d.items === 'string' ? JSON.parse(d.items) : d.items) : undefined,
+        display_quantity: d.display_quantity,
+        display_unit: d.display_unit,
       };
       setMovements(prev => [...prev, newMovement]);
       await updateProductQuantities(newMovement, false);
@@ -501,6 +609,8 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
       entity_type: m.entity_type,
       date: m.date,
       notes: m.notes,
+      display_quantity: m.display_quantity ?? null,
+      display_unit: m.display_unit ?? null,
     };
     if (m.product_id && m.quantity !== undefined) {
       updateData.product_id = m.product_id;
@@ -533,7 +643,9 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
         ...d,
         type: d.type as MovementType,
         entity_type: d.entity_type as 'supplier' | 'client',
-        items: d.items ? (typeof d.items === 'string' ? JSON.parse(d.items) : d.items) : undefined
+        items: d.items ? (typeof d.items === 'string' ? JSON.parse(d.items) : d.items) : undefined,
+        display_quantity: d.display_quantity,
+        display_unit: d.display_unit,
       };
       setMovements(prev => prev.map(mov => mov.id === m.id ? updatedMovement : mov));
       await updateProductQuantities(updatedMovement, false);
@@ -571,7 +683,6 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
     return profiles[id] || '-';
   }, [profiles]);
 
-  // ✅ دوال الوحدات
   const getUnitName = useCallback((id: string) => {
     const unit = units.find(u => u.id === id);
     return unit?.name || '-';
@@ -579,13 +690,10 @@ export const WarehouseProvider = ({ children }: { children: ReactNode }) => {
 
   const convertQuantity = useCallback((quantity: number, fromUnitId: string, toUnitId: string): number => {
     if (fromUnitId === toUnitId) return quantity;
-    
     const direct = unitConversions.find(uc => uc.from_unit_id === fromUnitId && uc.to_unit_id === toUnitId);
     if (direct) return quantity * direct.factor;
-    
     const reverse = unitConversions.find(uc => uc.from_unit_id === toUnitId && uc.to_unit_id === fromUnitId);
     if (reverse) return quantity / reverse.factor;
-    
     console.warn(`No conversion found from ${fromUnitId} to ${toUnitId}`);
     return quantity;
   }, [unitConversions]);
