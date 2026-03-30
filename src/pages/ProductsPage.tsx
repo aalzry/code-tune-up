@@ -11,7 +11,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
 const ProductsPage = () => {
-  const { products, categories, warehouses, movements, addProduct, updateProduct, deleteProduct, getCategoryName, getWarehouseName, refreshAll } = useWarehouse();
+  const { 
+    products, categories, warehouses, movements, 
+    addProduct, updateProduct, deleteProduct, 
+    getCategoryName, getWarehouseName, refreshAll,
+    units, getUnitName                    // ✅ إضافة الوحدات
+  } = useWarehouse();
   const { toast } = useToast();
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState('');
@@ -26,7 +31,9 @@ const ProductsPage = () => {
     description: '',
     min_quantity: 2,
     unit: 'قطعة',
-    pack_size: 1        // ✅ حجم العبوة (عدد القطع في الكرتون)
+    base_unit_id: '',
+    display_unit_id: '',
+    pack_size: 1
   });
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -34,7 +41,7 @@ const ProductsPage = () => {
   const [bulkDeleteDialog, setBulkDeleteDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // دوال حساب الكميات
+  // ========== دوال حساب الكميات ==========
   const getWarehouseQty = (productId: string, warehouseId: string) => {
     let total = 0;
     movements.forEach(m => {
@@ -84,7 +91,7 @@ const ProductsPage = () => {
     return getProductTotalQty(productId);
   };
 
-  // دالة التحقق من عدم تكرار اسم المنتج
+  // ========== دوال التحقق ==========
   const checkDuplicateProductName = (name: string, excludeId?: string) => {
     const existingProduct = products.find(p => 
       p.name.trim().toLowerCase() === name.trim().toLowerCase() && 
@@ -101,7 +108,7 @@ const ProductsPage = () => {
     return false;
   };
 
-  // التصفية
+  // ========== التصفية ==========
   const filtered = products
     .filter(p => p.name.includes(search) || p.code.includes(search) || p.barcode.includes(search))
     .filter(p => !selectedWarehouse || movements.some(m => m.product_id === p.id && m.warehouse_id === selectedWarehouse) || (movements.some(m => m.items?.some(i => i.product_id === p.id && m.warehouse_id === selectedWarehouse))));
@@ -143,8 +150,15 @@ const ProductsPage = () => {
   const generateCode = () => `P-${Date.now()}`;
   const generateBarcode = () => `${Math.floor(100000 + Math.random() * 900000)}`;
 
+  // ========== الحصول على الوحدات ==========
+  const baseUnits = units.filter(u => u.is_base_unit === true);
+  const displayUnits = units.filter(u => u.is_base_unit === false);
+
+  // ========== فتح وإغلاق الحوارات ==========
   const openAdd = () => {
     setEditing(null);
+    const defaultBaseUnit = baseUnits.find(u => u.name === 'قطعة')?.id || '';
+    const defaultDisplayUnit = displayUnits.find(u => u.name === 'قطعة')?.id || '';
     setForm({
       name: '',
       code: generateCode(),
@@ -153,6 +167,8 @@ const ProductsPage = () => {
       description: '',
       min_quantity: 2,
       unit: 'قطعة',
+      base_unit_id: defaultBaseUnit,
+      display_unit_id: defaultDisplayUnit,
       pack_size: 1
     });
     setDialogOpen(true);
@@ -168,6 +184,8 @@ const ProductsPage = () => {
       description: p.description,
       min_quantity: p.min_quantity ?? 2,
       unit: p.unit || 'قطعة',
+      base_unit_id: p.base_unit_id || '',
+      display_unit_id: p.display_unit_id || '',
       pack_size: p.pack_size ?? 1
     });
     setDialogOpen(true);
@@ -178,12 +196,7 @@ const ProductsPage = () => {
       toast({ title: 'تنبيه', description: 'يرجى إدخال جميع البيانات المطلوبة', variant: 'destructive' });
       return;
     }
-    if (!form.unit) {
-      toast({ title: 'تنبيه', description: 'يرجى اختيار الوحدة', variant: 'destructive' });
-      return;
-    }
     
-    // التحقق من عدم تكرار الاسم
     if (editing) {
       if (checkDuplicateProductName(form.name, editing.id)) return;
     } else {
@@ -200,6 +213,8 @@ const ProductsPage = () => {
         description: form.description,
         min_quantity: form.min_quantity,
         unit: form.unit,
+        base_unit_id: form.base_unit_id,
+        display_unit_id: form.display_unit_id,
         pack_size: form.pack_size
       });
       await refreshAll();
@@ -215,6 +230,8 @@ const ProductsPage = () => {
         description: form.description,
         min_quantity: form.min_quantity,
         unit: form.unit,
+        base_unit_id: form.base_unit_id,
+        display_unit_id: form.display_unit_id,
         pack_size: form.pack_size
       });
       await refreshAll();
@@ -248,9 +265,23 @@ const ProductsPage = () => {
     return 'bg-success/10 text-success';
   };
 
+  // ========== عرض معلومات العبوة ==========
+  const getPackInfo = () => {
+    if (!form.display_unit_id || !form.base_unit_id) return '';
+    const displayUnit = units.find(u => u.id === form.display_unit_id);
+    const baseUnit = units.find(u => u.id === form.base_unit_id);
+    if (displayUnit && baseUnit && form.pack_size && form.pack_size > 1) {
+      return `1 ${displayUnit.name} = ${form.pack_size} ${baseUnit.name}`;
+    }
+    return '';
+  };
+
+  // ========== بطاقة المنتج للجوال ==========
   const MobileCard = ({ p }: { p: Product }) => {
     const qty = getDisplayQty(p.id);
     const threshold = p.min_quantity ?? 2;
+    const displayUnitName = getUnitName(p.display_unit_id || '');
+    const baseUnitName = getUnitName(p.base_unit_id || '');
     return (
       <div className="bg-card rounded-xl p-3 border border-border shadow-card space-y-2">
         <div className="flex items-start justify-between">
@@ -270,8 +301,13 @@ const ProductsPage = () => {
           <span>الصنف: {getCategoryName(p.category_id || '')}</span>
           {!selectedWarehouse && <span>المخازن: {getProductWarehouses(p.id)}</span>}
           <span>الكمية: <span className={`font-bold ${getQuantityStyle(p)}`}>{qty}</span></span>
-          <span>الوحدة: {p.unit || 'قطعة'}</span>
+          <span>الوحدة: {displayUnitName || p.unit || 'قطعة'}</span>
           <span>حد التنبيه: {threshold}</span>
+          {p.pack_size && p.pack_size > 1 && (
+            <span className="text-[10px] text-muted-foreground">
+              {p.pack_size} {baseUnitName} / {displayUnitName}
+            </span>
+          )}
         </div>
       </div>
     );
@@ -279,6 +315,7 @@ const ProductsPage = () => {
 
   return (
     <div className="space-y-3 sm:space-y-4">
+      {/* شريط البحث والفلاتر */}
       <div className="flex flex-col gap-3">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -310,6 +347,7 @@ const ProductsPage = () => {
         </div>
       </div>
 
+      {/* عرض الجوال */}
       <div className="sm:hidden space-y-2">
         {isAdmin && filtered.length > 0 && (
           <div className="flex items-center gap-2 px-1">
@@ -321,6 +359,7 @@ const ProductsPage = () => {
         {filtered.length === 0 && <p className="text-center text-muted-foreground py-8 text-sm">لا توجد منتجات</p>}
       </div>
 
+      {/* جدول سطح المكتب */}
       <div className="hidden sm:block bg-card rounded-xl shadow-card border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -332,6 +371,7 @@ const ProductsPage = () => {
                 <th className="text-right p-3 font-semibold text-foreground hidden md:table-cell">الصنف</th>
                 <th className="text-right p-3 font-semibold text-foreground">الكمية</th>
                 <th className="text-right p-3 font-semibold text-foreground">الوحدة</th>
+                <th className="text-right p-3 font-semibold text-foreground">حجم العبوة</th>
                 <th className="text-right p-3 font-semibold text-foreground">حد التنبيه</th>
                 {!selectedWarehouse && <th className="text-right p-3 font-semibold text-foreground hidden lg:table-cell">المخازن</th>}
                 <th className="text-center p-3 font-semibold text-foreground">إجراءات</th>
@@ -341,6 +381,8 @@ const ProductsPage = () => {
               {filtered.map(p => {
                 const qty = getDisplayQty(p.id);
                 const threshold = p.min_quantity ?? 2;
+                const displayUnitName = getUnitName(p.display_unit_id || '');
+                const packInfo = p.pack_size && p.pack_size > 1 ? `${p.pack_size} ${getUnitName(p.base_unit_id || '')}` : '-';
                 return (
                   <tr key={p.id} className={`border-b border-border last:border-0 hover:bg-secondary/30 transition-colors ${selected.has(p.id) ? 'bg-primary/5' : ''}`}>
                     {isAdmin && <td className="p-3"><Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleOne(p.id)} /></td>}
@@ -350,7 +392,8 @@ const ProductsPage = () => {
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${getQuantityStyle(p)}`}>{qty}</span>
                     </td>
-                    <td className="p-3 text-muted-foreground">{p.unit || 'قطعة'}</td>
+                    <td className="p-3 text-muted-foreground">{displayUnitName || p.unit || 'قطعة'}</td>
+                    <td className="p-3 text-muted-foreground text-xs">{packInfo}</td>
                     <td className="p-3 text-muted-foreground">{threshold}</td>
                     {!selectedWarehouse && <td className="p-3 text-muted-foreground hidden lg:table-cell">{getProductWarehouses(p.id)}</td>}
                     <td className="p-3">
@@ -366,13 +409,13 @@ const ProductsPage = () => {
                   </tr>
                 );
               })}
-           {filtered.length === 0 && (
-  <tr>
-    <td colSpan={isAdmin ? 9 : 8} className="p-8 text-center text-muted-foreground">
-      لا توجد منتجات
-    </td>
-  </tr>
-)}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={isAdmin ? 10 : 9} className="p-8 text-center text-muted-foreground">
+                    لا توجد منتجات
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -406,40 +449,54 @@ const ProductsPage = () => {
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs sm:text-sm">الوحدة</Label>
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={form.unit}
-                onChange={e => setForm({ ...form, unit: e.target.value })}
-              >
-                <option value="قطعة">قطعة</option>
-                <option value="كرتون">كرتون</option>
-                <option value="علبة">علبة</option>
-                <option value="درزن">درزن</option>
-                <option value="شدة">شدة</option>
-                <option value="كيس">كيس</option>
-                <option value="طرد">طرد</option>
-                <option value="لفة">لفة</option>
-                <option value="زجاجة">زجاجة</option>
-                <option value="عبوة">عبوة</option>
-              </select>
+
+            {/* ✅ حقول الوحدات */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs sm:text-sm">الوحدة الأساسية</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.base_unit_id}
+                  onChange={e => setForm({ ...form, base_unit_id: e.target.value })}
+                >
+                  <option value="">اختر الوحدة الأساسية</option>
+                  {baseUnits.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} {u.abbreviation ? `(${u.abbreviation})` : ''}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground">الوحدة التي يحسب بها المخزون (قطعة، كيلو، لتر)</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs sm:text-sm">الوحدة المعروضة</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={form.display_unit_id}
+                  onChange={e => setForm({ ...form, display_unit_id: e.target.value })}
+                >
+                  <option value="">اختر الوحدة المعروضة</option>
+                  {displayUnits.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} {u.abbreviation ? `(${u.abbreviation})` : ''}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-muted-foreground">الوحدة التي يعرض بها المنتج (كرتون، كيس، درزن)</p>
+              </div>
             </div>
-            {/* ✅ حقل حجم العبوة */}
+
             <div className="space-y-1.5">
               <Label className="text-xs sm:text-sm">حجم العبوة</Label>
               <Input
                 type="number"
-                placeholder="مثال: 12"
+                placeholder="مثال: 24"
                 value={form.pack_size}
                 onChange={e => setForm({ ...form, pack_size: parseInt(e.target.value, 10) || 1 })}
                 min="1"
                 className="text-sm"
               />
               <p className="text-[10px] text-muted-foreground">
-                يحدد عدد القطع داخل الكرتون الواحد (مثال: 1 كرتون = 12 قطعة)
+                {getPackInfo() || 'عدد الوحدات الأساسية في العبوة الواحدة (مثال: 1 كرتون = 24 علبة)'}
               </p>
             </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs sm:text-sm">الحد الأدنى للتنبيه</Label>
               <Input
@@ -452,10 +509,12 @@ const ProductsPage = () => {
               />
               <p className="text-[10px] text-muted-foreground">عند وصول الكمية إلى هذا الرقم أو أقل، سيظهر تحذير في لوحة التحكم.</p>
             </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs sm:text-sm">الوصف</Label>
               <Input placeholder="أدخل وصف المنتج" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             </div>
+
             <Button onClick={handleSave} className="gradient-primary border-0 mt-1 text-sm">
               {editing ? 'تحديث' : 'إضافة'}
             </Button>
