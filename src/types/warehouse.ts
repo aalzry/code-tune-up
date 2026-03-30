@@ -16,6 +16,7 @@ export interface Product {
   warehouse_id: string | null;
   description: string;
   unit?: string;              // الوحدة الأساسية للمنتج (قطعة، كرتون، علبة، ...)
+  pack_size?: number;         // عدد القطع في الكرتون/العبوة (مثال: 1 كرتون = 12 قطعة)
   image?: string;
   created_by: string | null;
   created_at: string;
