@@ -1,5 +1,8 @@
+// src/pages/movements/utils/movementUtils.ts
+
 import { StockMovement } from '@/types/warehouse';
 
+// قائمة الوحدات الأساسية (للتطابق القديم، يمكن إزالتها لاحقاً)
 export const UNITS = ['قطعة', 'كرتون', 'علبة', 'درزن', 'شدة', 'كيس', 'طرد', 'لفة', 'زجاجة', 'عبوة'];
 
 let receiptCounter = 1000;
@@ -15,12 +18,20 @@ export const buildMovementHtml = (
   entityName: string,
   userName: string,
   warehouseManager: string,
-  baseUrl: string = ''
+  baseUrl: string = '',
+  getUnitName: (unitId: string) => string = (id) => id // دالة افتراضية للحصول على اسم الوحدة
 ) => {
   const typeLabel = m.type === 'in' ? 'وارد' : 'صادر';
   const entityLabel = m.entity_type === 'supplier' ? 'المورد' : 'جهة الصرف';
   const receiptNo = getReceiptNumber();
-  const unitLabel = m.unit || 'قطعة';
+
+  // استخدام الوحدة المعروضة إذا وجدت، وإلا الوحدة الأساسية
+  const displayUnitId = m.display_unit_id ?? m.unit_id;
+  const unitLabel = displayUnitId ? getUnitName(displayUnitId) : (m.unit || 'قطعة');
+
+  // الكمية المعروضة أو الأصلية
+  const displayQuantity = m.display_quantity ?? m.quantity ?? 0;
+
   const today = new Date();
   const todayDate = today.toLocaleDateString('ar-EG');
   const todayDay = today.toLocaleDateString('ar-EG', { weekday: 'long' });
@@ -64,12 +75,12 @@ export const buildMovementHtml = (
       margin: 0 15px;
     }
     .header-center .top-logo {
-      height: 40px; /* حجم الصورة العلوية */
+      height: 40px;
       width: auto;
       margin-bottom: 5px;
     }
     .header-center .main-logo {
-      height: 70px; /* حجم الشعار الرئيسي */
+      height: 70px;
       width: auto;
     }
     .header-left {
@@ -167,7 +178,6 @@ export const buildMovementHtml = (
 </head>
 <body>
   <div class="container">
-    <!-- الرأس: النص الرسمي على اليمين، الصور في المنتصف، التاريخ على اليسار -->
     <div class="header-row">
       <div class="header-right">
             الجمهورية اليمنية<br>
@@ -177,9 +187,7 @@ export const buildMovementHtml = (
             اللـــ105ـــــو ا ء مشاه
           </div>
       <div class="header-center">
-        <!-- الصورة العلوية (النص الديني) -->
         <img src="${topLogoUrl}" alt="سبحانه وتعالى" class="top-logo" onerror="this.style.display='none'">
-        <!-- الشعار الرئيسي -->
         <img src="${logoUrl}" alt="شعار الجمهورية اليمنية" class="main-logo" onerror="this.style.display='none'">
       </div>
       <div class="header-left">
@@ -188,13 +196,11 @@ export const buildMovementHtml = (
       </div>
     </div>
 
-    <!-- عنوان السند -->
     <div class="header-main">
       <h1>نظام إدارة المخازن</h1>
       <p>سند حركة مخزون (${typeLabel})</p>
     </div>
 
-    <!-- بيانات السند -->
     <div class="info-row">
       <div>رقم السند</div><div>${receiptNo}</div>
       <div>المخزن</div><div>${warehouseName}</div>
@@ -203,19 +209,17 @@ export const buildMovementHtml = (
       <div>${entityLabel}</div><div colspan="3">${entityName}</div>
     </div>
 
-    <!-- جدول المنتج -->
     <table class="items-table">
       <thead>
         <tr><th>م</th><th>اسم المنتج</th><th>الكمية</th><th>الوحدة</th></tr>
       </thead>
       <tbody>
-        <tr><td>1</td><td>${productName}</td><td>${m.quantity}</td><td>${unitLabel}</td></tr>
+        <tr><td>1</td><td>${productName}</td><td>${displayQuantity}</td><td>${unitLabel}</td></tr>
       </tbody>
     </table>
 
     ${m.notes ? `<div class="notes"><strong>ملاحظات:</strong> ${m.notes}</div>` : ''}
 
-    <!-- التواقيع -->
     <div class="signatures">
       <div class="signature-box">
         <p class="title">أمين المخزن</p>
@@ -227,7 +231,6 @@ export const buildMovementHtml = (
       </div>
     </div>
 
-    <!-- الفوتر -->
     <div class="footer">
       تم الطباعة بتاريخ ${todayDate} | برمجة مفيد الزري 778492884
     </div>
@@ -246,26 +249,33 @@ export const buildMultiMovementHtml = (
   userName: string,
   warehouseManager: string,
   productsMap: Map<string, string>,
-  baseUrl: string = ''
+  baseUrl: string = '',
+  getUnitName: (unitId: string) => string = (id) => id
 ) => {
   const typeLabel = m.type === 'in' ? 'وارد' : 'صادر';
   const entityLabel = m.entity_type === 'supplier' ? 'المورد' : 'جهة الصرف';
   const receiptNo = getReceiptNumber();
+
+  const rows = (m.items || []).map((item, index) => {
+    const displayUnitId = item.display_unit_id ?? item.unit_id;
+    const unitLabel = displayUnitId ? getUnitName(displayUnitId) : (item.unit || 'قطعة');
+    const displayQuantity = item.display_quantity ?? item.quantity ?? 0;
+    return `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${productsMap.get(item.product_id) || 'غير معروف'}</td>
+        <td>${displayQuantity}</td>
+        <td>${unitLabel}</td>
+        <td>${item.notes || '—'}</td>
+      </tr>
+    `;
+  }).join('');
+
   const today = new Date();
   const todayDate = today.toLocaleDateString('ar-EG');
   const todayDay = today.toLocaleDateString('ar-EG', { weekday: 'long' });
   const logoUrl = baseUrl ? `${baseUrl}/logo.png` : '/logo.png';
   const topLogoUrl = baseUrl ? `${baseUrl}/logn1.png` : '/logn1.png';
-
-  const rows = (m.items || []).map((item, index) => `
-    <tr>
-      <td>${index + 1}</td>
-      <td>${productsMap.get(item.product_id) || 'غير معروف'}</td>
-      <td>${item.quantity}</td>
-      <td>${item.unit}</td>
-      <td>${item.notes || '—'}</td>
-    </tr>
-  `).join('');
 
   return `<!DOCTYPE html>
 <html dir="rtl">
