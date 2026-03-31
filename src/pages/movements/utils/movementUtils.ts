@@ -211,12 +211,10 @@ export const buildMovementHtml = (
 
     <table class="items-table">
       <thead>
-        <tr><th>م</th><th>اسم المنتج</th><th>الكمية</th><th>الوحدة</th></tr>
-      </thead>
+        <tr><th>م</th><th>اسم المنتج</th><th>الكمية</th><th>الوحدة</th> </thead>
       <tbody>
-        <tr><td>1</td><td>${productName}</td><td>${displayQuantity}</td><td>${unitLabel}</td></tr>
-      </tbody>
-    </table>
+        <tr><td>1</td><td>${productName}</td><td>${displayQuantity}</td><td>${unitLabel}</td> </tbody>
+     </table>
 
     ${m.notes ? `<div class="notes"><strong>ملاحظات:</strong> ${m.notes}</div>` : ''}
 
@@ -451,8 +449,7 @@ export const buildMultiMovementHtml = (
 
     <table class="items-table">
       <thead>
-        <tr><th>م</th><th>اسم المنتج</th><th>الكمية</th><th>الوحدة</th><th>ملاحظات</th></tr>
-      </thead>
+        <tr><th>م</th><th>اسم المنتج</th><th>الكمية</th><th>الوحدة</th><th>ملاحظات</th> </thead>
       <tbody>
         ${rows}
       </tbody>
