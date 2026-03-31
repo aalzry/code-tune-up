@@ -54,9 +54,9 @@ export interface Product {
   image?: string;
   unit: string;
   min_quantity?: number;
-  pack_size?: number;
-  base_unit_id?: string | null;
-  display_unit_id?: string | null;
+  pack_size?: number;          // عدد الوحدات الأساسية في الوحدة المعروضة
+  base_unit_id?: string | null;    // معرف الوحدة الأساسية للمخزون
+  display_unit_id?: string | null; // معرف الوحدة المعروضة للمستخدم
   created_at: string;
   created_by: string;
 }
@@ -150,7 +150,7 @@ interface WarehouseContextType {
   getClientName: (id: string) => string;
   getProductName: (id: string) => string;
   getUserName: (id: string | null) => string;
-  getUnitName: (id: string) => string;
+  getUnitName: (id: string) => string;               // تحويل معرف الوحدة إلى اسمها
   convertQuantity: (quantity: number, fromUnitId: string, toUnitId: string) => number;
   isLinkedToMovement: (type: 'product' | 'category' | 'warehouse' | 'supplier' | 'client', id: string) => boolean;
   refreshAll: () => Promise<void>;
